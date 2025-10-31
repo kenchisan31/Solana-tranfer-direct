@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Solana Phantom DApp Direct</title>
+    <title>Ethereum MetaMask DApp Direct</title>
     <script src="https://cdn.tailwindcss.com"></script>
     
     <style>
@@ -15,30 +15,31 @@
         }
     </style>
 
-    <script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@1.91.7/lib/index.iife.min.js"></script>
-    
+    <script src="https://cdn.jsdelivr.net/npm/ethers@6.12.0/dist/ethers.umd.min.js"></script>
+
     <script>
-        // Bỏ dòng "const { ... } = SolanaWeb3;"
-        // Vì các thành phần như PublicKey, Connection đã được tiêm vào phạm vi toàn cục (window)
-        // khi tải index.iife.min.js
-
-        const PROJECT_WALLET_ADDRESS = new PublicKey('4zqHmzF87YmLQ5KouzPnBttkmhnR2CUe7y1ZvSUX3Sc9'); // Ví nhận
-        const AMOUNT_TO_SEND = 0.001 * LAMPORTS_PER_SOL;
-        const RPC_ENDPOINT = "https://api.devnet.solana.com";
-
-        let publicKey = null; 
+        // Lấy các thành phần từ Ethers.js
+        const { ethers } = window;
         
         // =======================================================
-        // HÀM UTILS
+        // CẤU HÌNH DAPP
+        // =======================================================
+        
+        // THAY ĐỊA CHỈ NÀY BẰNG VÍ ETH CỦA BẠN (Sử dụng Devnet/Testnet như Sepolia)
+        const PROJECT_WALLET_ADDRESS_ETH = '0x0000000000000000000000000000000000000000'; // THAY ĐỔI
+        const AMOUNT_TO_SEND = "0.001"; // Gửi 0.001 ETH
+        const EXPLORER_URL = "https://sepolia.etherscan.io/tx/"; // Dành cho Sepolia Testnet
+
+        let publicKey = null; // Địa chỉ ví đã kết nối (string)
+        
+        // =======================================================
+        // HÀM UTILS CẦN THIẾT (BỊ THIẾU TRONG CODE CỦA BẠN)
         // =======================================================
 
         function getProvider() {
-            // Kiểm tra xem Phantom đã tiêm đối tượng solana vào cửa sổ chưa
-            if ('solana' in window) {
-                const provider = window.solana;
-                if (provider.isPhantom) { 
-                    return provider;
-                }
+            // Kiểm tra xem ví EVM (MetaMask) đã tiêm đối tượng ethereum vào cửa sổ chưa
+            if (typeof window.ethereum !== 'undefined') {
+                return window.ethereum;
             }
             return null;
         }
@@ -59,16 +60,16 @@
             const provider = getProvider();
             
             if (!provider) {
-                connectBtn.textContent = 'Cài đặt Ví Phantom!';
+                connectBtn.textContent = 'Cài đặt MetaMask!';
                 connectBtn.disabled = true;
                 connectBtn.classList.add('bg-gray-400');
-                displayMessage('Vui lòng cài đặt và mở khóa ví Phantom.', true);
+                displayMessage('Vui lòng cài đặt và mở khóa ví MetaMask.', true);
                 return;
             }
 
             if (isConnected && publicKey) {
-                const pk = publicKey.toBase58();
-                connectBtn.textContent = `${pk.substring(0, 4)}...${pk.slice(-4)}`;
+                const pk = publicKey;
+                connectBtn.textContent = `${pk.substring(0, 6)}...${pk.slice(-4)}`;
                 connectBtn.disabled = true;
                 connectBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700', 'bg-gray-400');
                 connectBtn.classList.add('bg-green-600');
@@ -78,128 +79,131 @@
                 transferBtn.disabled = false;
                 
             } else {
-                connectBtn.textContent = 'Kết nối Ví Phantom';
+                connectBtn.textContent = 'Kết nối Ví MetaMask';
                 connectBtn.disabled = false;
                 connectBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
                 connectBtn.classList.remove('bg-green-600', 'bg-gray-400');
                 
                 disconnectBtn.classList.add('hidden');
                 transferBtn.classList.add('hidden');
-                displayMessage('Chọn "Kết nối Ví Phantom" để bắt đầu.', false);
+                displayMessage('Chọn "Kết nối Ví MetaMask" để bắt đầu.', false);
             }
         }
         
-        // --------------------------
-        // KẾT NỐI VÍ TRỰC TIẾP
-        // --------------------------
+        // =======================================================
+        // HÀM KẾT NỐI (ĐƯỢC SỬA)
+        // =======================================================
         
         async function connectWallet() {
             const provider = getProvider();
             if (!provider) return;
 
-            // Xử lý ngắt kết nối (Nếu nút đang hiển thị địa chỉ)
+            // Trong EVM, ngắt kết nối không thực sự ngắt quyền truy cập, 
+            // nó chỉ làm sạch trạng thái DApp
             if (publicKey) {
-                // Không cần disconnect nếu chỉ là ngắt kết nối logic. 
-                // Tuy nhiên, việc gọi provider.disconnect() là chuẩn để hủy quyền truy cập.
-                await provider.disconnect(); 
                 publicKey = null;
                 updateUI(false);
                 return;
             }
 
             try {
-                displayMessage(`Đang kết nối với ví Phantom... Vui lòng xác nhận.`, false);
+                displayMessage('Đang kết nối với ví EVM... Vui lòng xác nhận.', false);
                 
-                // Yêu cầu kết nối trực tiếp với Provider
-                const resp = await provider.connect();
+                // Yêu cầu quyền truy cập tài khoản
+                const accounts = await provider.request({ method: 'eth_requestAccounts' });
                 
-                publicKey = resp.publicKey;
+                // Tạo một Ethers provider/signer để tương tác
+                const ethersProvider = new ethers.BrowserProvider(provider);
+                const signer = await ethersProvider.getSigner();
+
+                publicKey = signer.address;
                 updateUI(true);
-                displayMessage(`Đã kết nối với ví Phantom! Public Key: ${publicKey.toBase58()}`, false);
+                displayMessage(`Đã kết nối! Địa chỉ: ${publicKey}`, false);
                 
             } catch (error) {
-                displayMessage(`Lỗi kết nối ví Phantom: Người dùng đã hủy hoặc lỗi không xác định.`, true);
+                displayMessage(`Lỗi kết nối ví EVM: Người dùng đã hủy hoặc lỗi không xác định.`, true);
                 publicKey = null;
                 updateUI(false);
             }
         }
         
-        // --------------------------
-        // GỬI GIAO DỊCH
-        // --------------------------
+        // =======================================================
+        // HÀM GIAO DỊCH (ĐƯỢC SỬA)
+        // =======================================================
 
-        async function sendSolTransaction() {
+        async function sendEthTransaction() {
             if (!publicKey) {
                 displayMessage('Lỗi: Ví chưa được kết nối.', true);
                 return;
             }
             
+            if (PROJECT_WALLET_ADDRESS_ETH === '0x0000000000000000000000000000000000000000') {
+                 displayMessage('Lỗi cấu hình: Vui lòng thay đổi địa chỉ ví nhận (PROJECT_WALLET_ADDRESS_ETH).', true);
+                 return;
+            }
+            
             document.getElementById('transfer-button').disabled = true;
-            // Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL 
-            // đều đã là biến toàn cục
-            const connection = new Connection(RPC_ENDPOINT, 'confirmed');
-            const provider = getProvider();
+            
+            const ethProvider = getProvider();
+            const ethersProvider = new ethers.BrowserProvider(ethProvider);
             
             try {
-                // 1. Tạo Instruction chuyển SOL
-                const instruction = SystemProgram.transfer({
-                    fromPubkey: publicKey,
-                    toPubkey: PROJECT_WALLET_ADDRESS,
-                    lamports: AMOUNT_TO_SEND,
-                });
-
-                // 2. Tạo Giao dịch mới
-                const transaction = new Transaction().add(instruction);
-
-                // 3. Lấy Blockhash và thiết lập người trả phí
-                const latestBlockhash = await connection.getLatestBlockhash();
-                transaction.recentBlockhash = latestBlockhash.blockhash;
-                transaction.feePayer = publicKey;
+                const signer = await ethersProvider.getSigner();
+                
+                // Chuyển đổi số lượng từ số thập phân ("0.001") sang BigInt (wei)
+                const amountWei = ethers.parseEther(AMOUNT_TO_SEND); 
 
                 displayMessage('Đang gửi giao dịch... Vui lòng **ký trên ví** của bạn.', false);
                 
-                // 4. Yêu cầu ví ký và gửi giao dịch (Sử dụng provider.signAndSendTransaction)
-                const signature = await provider.signAndSendTransaction(transaction);
-                
-                // 5. Chờ giao dịch được xác nhận
-                await connection.confirmTransaction({
-                    blockhash: latestBlockhash.blockhash,
-                    lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
-                    signature: signature.signature, 
-                }, 'confirmed');
+                // Tạo và gửi giao dịch
+                const txResponse = await signer.sendTransaction({
+                    to: PROJECT_WALLET_ADDRESS_ETH,
+                    value: amountWei, 
+                });
 
-                const explorerLink = `https://explorer.solana.com/tx/${signature.signature}?cluster=devnet`;
-                displayMessage(`Giao dịch thành công! Signature: ${signature.signature.substring(0, 10)}... <a href="${explorerLink}" target="_blank" class="font-bold underline ml-1">Xem giao dịch</a>`, false);
+                // Chờ giao dịch được xác nhận
+                const receipt = await txResponse.wait(); 
+
+                const explorerLink = `${EXPLORER_URL}${receipt.hash}`;
+                displayMessage(`Giao dịch thành công! Hash: ${receipt.hash.substring(0, 10)}... <a href="${explorerLink}" target="_blank" class="font-bold underline ml-1">Xem giao dịch</a>`, false);
 
             } catch (error) {
-                let errorMessage = error.message?.includes("User rejected") ? "Giao dịch đã bị người dùng hủy." : (error.message || "Lỗi giao dịch không xác định.");
+                let errorMessage = error.message?.includes("user rejected") ? "Giao dịch đã bị người dùng hủy." : (error.message || "Lỗi giao dịch không xác định.");
                 displayMessage(`Giao dịch thất bại: ${errorMessage}`, true);
             } finally {
                 document.getElementById('transfer-button').disabled = false;
             }
         }
         
-        // Khởi tạo các sự kiện khi cửa sổ load xong
+        // =======================================================
+        // KHỞI TẠO SỰ KIỆN (BỊ THIẾU TRONG CODE CỦA BẠN)
+        // =======================================================
         window.onload = function() {
             const provider = getProvider();
+            
+            // Xử lý sự kiện thay đổi tài khoản hoặc mạng (chuẩn EVM)
             if (provider) {
-                // Lắng nghe sự kiện ngắt kết nối (chỉ hoạt động với Phantom)
-                provider.on("disconnect", () => {
-                    publicKey = null;
-                    updateUI(false);
+                provider.on('accountsChanged', (accounts) => {
+                    publicKey = accounts.length > 0 ? accounts[0] : null;
+                    updateUI(publicKey !== null);
+                });
+                provider.on('chainChanged', (chainId) => {
+                    displayMessage(`Mạng đã thay đổi sang Chain ID: ${chainId}`, false);
+                    // Có thể cần refresh hoặc kết nối lại ở đây
                 });
             }
 
             document.getElementById('connect-button').addEventListener('click', connectWallet);
+            // Trong EVM, "Ngắt kết nối" thường chỉ là ngắt kết nối logic trong DApp
             document.getElementById('disconnect-button').addEventListener('click', () => {
-                 if (provider) {
-                     provider.disconnect();
-                 }
+                publicKey = null;
+                updateUI(false);
             });
-            document.getElementById('transfer-button').addEventListener('click', sendSolTransaction);
+            document.getElementById('transfer-button').addEventListener('click', sendEthTransaction);
             
             updateUI(false); 
         };
+        
     </script>
 </head>
 <body class="bg-gray-50 min-h-screen flex items-start justify-center p-8 font-sans">
@@ -209,7 +213,7 @@
             id="connect-button"
             class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition duration-150 ease-in-out shadow-md disabled:opacity-50 text-sm md:text-base"
         >
-            Kết nối Ví Phantom
+            Kết nối Ví **MetaMask**
         </button>
         
         <button
@@ -222,10 +226,10 @@
     
     <div class="bg-white p-8 md:p-10 rounded-xl shadow-2xl w-full max-w-md mt-24">
         <h1 class="text-3xl font-extrabold text-gray-800 mb-6 text-center">
-            Demo Chuyển SOL (Phantom Direct)
+            Demo Chuyển **ETH** (MetaMask/EVM Direct)
         </h1>
         <p class="text-sm text-gray-500 mb-6 text-center">
-            Mã này kết nối trực tiếp với ví **Phantom** thông qua đối tượng `window.solana`.
+            Mã này kết nối trực tiếp với ví **EVM (MetaMask)** thông qua đối tượng `window.ethereum`.
         </p>
         
         <div class="flex flex-col space-y-4">
@@ -234,7 +238,7 @@
                 class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg transition duration-150 ease-in-out shadow-lg hidden disabled:opacity-50"
                 disabled
             >
-                Gửi 0.001 SOL (Devnet)
+                Gửi 0.001 ETH (Sepolia/Testnet)
             </button>
         </div>
 
@@ -245,4 +249,3 @@
 </body>
 
 </html>
-
