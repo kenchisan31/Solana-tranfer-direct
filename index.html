@@ -15,15 +15,17 @@
         }
     </style>
 
- <script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@1.91.7/lib/index.iife.min.js">
-        // 1. IMPORT TẤT CẢ TỪ SOLANA WEB3.JS VÀO BIẾN SolanaWeb3 (Đã sửa lỗi SyntaxError)
-       const PROJECT_WALLET_ADDRESS = new PublicKey('4zqHmzF87YmLQ5KouzPnBttkmhnR2CUe7y1ZvSUX3Sc9'); // Ví nhận
+    <script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@1.91.7/lib/index.iife.min.js"></script>
+    
+    <script>
+        // Lấy các thành phần từ đối tượng toàn cục đã được tiêm (SolanaWeb3)
+        const { PublicKey, Connection, Transaction, SystemProgram, LAMPORTS_PER_SOL } = SolanaWeb3;
+
+        const PROJECT_WALLET_ADDRESS = new PublicKey('4zqHmzF87YmLQ5KouzPnBttkmhnR2CUe7y1ZvSUX3Sc9'); // Ví nhận
         const AMOUNT_TO_SEND = 0.001 * LAMPORTS_PER_SOL;
         const RPC_ENDPOINT = "https://api.devnet.solana.com";
 
         let publicKey = null; 
-        
-        // ... (Phần còn lại của code vẫn giữ nguyên, nhưng không cần type="module" nữa)
         
         // =======================================================
         // HÀM UTILS
@@ -186,7 +188,7 @@
             document.getElementById('connect-button').addEventListener('click', connectWallet);
             document.getElementById('disconnect-button').addEventListener('click', () => {
                  if (provider) {
-                    provider.disconnect();
+                     provider.disconnect();
                  }
             });
             document.getElementById('transfer-button').addEventListener('click', sendSolTransaction);
@@ -239,7 +241,3 @@
 </body>
 
 </html>
-
-
-
-
