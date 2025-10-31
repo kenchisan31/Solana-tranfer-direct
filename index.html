@@ -20,23 +20,20 @@
         // Chúng ta sẽ truy cập các lớp thông qua biến này (ví dụ: SolanaWeb3.Connection)
         import * as SolanaWeb3 from 'https://cdn.jsdelivr.net/npm/@solana/web3.js@1.91.7/lib/index.iife.min.js'; 
 
-        // =======================================================
-        // CẤU HÌNH VÀ BIẾN TOÀN CỤC
-        // =======================================================
-        
-        // TRUY CẬP CÁC LỚP QUA ĐỐI TƯỢNG GỐC SolanaWeb3
-        const Connection = SolanaWeb3.Connection;
-        const PublicKey = SolanaWeb3.PublicKey;
-        const Transaction = SolanaWeb3.Transaction;
-        const SystemProgram = SolanaWeb3.SystemProgram;
-        const LAMPORTS_PER_SOL = SolanaWeb3.LAMPORTS_PER_SOL;
 
+const Connection = SolanaWeb3.web3.Connection;
+const PublicKey = SolanaWeb3.web3.PublicKey;
+const Transaction = SolanaWeb3.web3.Transaction;
+const SystemProgram = SolanaWeb3.web3.SystemProgram;
+const LAMPORTS_PER_SOL = SolanaWeb3.web3.LAMPORTS_PER_SOL;
 
-        const PROJECT_WALLET_ADDRESS = new PublicKey('4zqHmzF87YmLQ5KouzPnBttkmhnR2CUe7y1ZvSUX3Sc9'); // Ví nhận
-        const AMOUNT_TO_SEND = 0.001 * LAMPORTS_PER_SOL;
-        const RPC_ENDPOINT = "https://api.devnet.solana.com";
+// Bạn có thể giữ nguyên phần còn lại của code.
+const PROJECT_WALLET_ADDRESS = new PublicKey('4zqHmzF87YmLQ5KouzPnBttkmhnR2CUe7y1ZvSUX3Sc9'); // Ví nhận
+const AMOUNT_TO_SEND = 0.001 * LAMPORTS_PER_SOL;
+const RPC_ENDPOINT = "https://api.devnet.solana.com";
 
-        let publicKey = null; 
+let publicKey = null; 
+// ... (phần còn lại của code)
         
         // =======================================================
         // HÀM UTILS
@@ -252,4 +249,5 @@
 </body>
 
 </html>
+
 
