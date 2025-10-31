@@ -18,8 +18,9 @@
     <script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@1.91.7/lib/index.iife.min.js"></script>
     
     <script>
-        // Lấy các thành phần từ đối tượng toàn cục đã được tiêm (SolanaWeb3)
-        const { PublicKey, Connection, Transaction, SystemProgram, LAMPORTS_PER_SOL } = SolanaWeb3;
+        // Bỏ dòng "const { ... } = SolanaWeb3;"
+        // Vì các thành phần như PublicKey, Connection đã được tiêm vào phạm vi toàn cục (window)
+        // khi tải index.iife.min.js
 
         const PROJECT_WALLET_ADDRESS = new PublicKey('4zqHmzF87YmLQ5KouzPnBttkmhnR2CUe7y1ZvSUX3Sc9'); // Ví nhận
         const AMOUNT_TO_SEND = 0.001 * LAMPORTS_PER_SOL;
@@ -98,7 +99,9 @@
 
             // Xử lý ngắt kết nối (Nếu nút đang hiển thị địa chỉ)
             if (publicKey) {
-                await provider.disconnect();
+                // Không cần disconnect nếu chỉ là ngắt kết nối logic. 
+                // Tuy nhiên, việc gọi provider.disconnect() là chuẩn để hủy quyền truy cập.
+                await provider.disconnect(); 
                 publicKey = null;
                 updateUI(false);
                 return;
@@ -132,6 +135,8 @@
             }
             
             document.getElementById('transfer-button').disabled = true;
+            // Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL 
+            // đều đã là biến toàn cục
             const connection = new Connection(RPC_ENDPOINT, 'confirmed');
             const provider = getProvider();
             
@@ -195,7 +200,6 @@
             
             updateUI(false); 
         };
-        
     </script>
 </head>
 <body class="bg-gray-50 min-h-screen flex items-start justify-center p-8 font-sans">
@@ -241,3 +245,4 @@
 </body>
 
 </html>
+
