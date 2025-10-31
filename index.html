@@ -15,15 +15,18 @@
         }
     </style>
 
-    <script type="module">
-        // CHỈ IMPORT THƯ VIỆN SOLANA WEB3.JS (Ổn định)
-        import { 
+   <script type="module">
+        // 1. IMPORT TẤT CẢ TỪ SOLANA WEB3.JS VÀO BIẾN TOÀN CỤC (Để tránh lỗi SyntaxError)
+        import * as SolanaWeb3 from 'https://cdn.jsdelivr.net/npm/@solana/web3.js@1.91.7/lib/index.iife.min.js'; 
+
+        // Trích xuất các lớp cần thiết
+        const { 
             Connection, 
             PublicKey, 
             Transaction, 
             SystemProgram, 
             LAMPORTS_PER_SOL 
-        } from 'https://cdn.jsdelivr.net/npm/@solana/web3.js@1.91.7/lib/index.iife.min.js'; 
+        } = SolanaWeb3;
 
         // =======================================================
         // CẤU HÌNH VÀ BIẾN TOÀN CỤC
@@ -246,4 +249,5 @@
         </div>
     </div>
 </body>
+
 </html>
