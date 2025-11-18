@@ -1,208 +1,195 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BNB Web3Modal DApp (BSC) - Sửa lỗi Auto Pop-up</title>
-    
-    <style>
-        body { font-family: sans-serif; margin: 20px; text-align: center; }
-        .container { max-width: 400px; margin: 50px auto; padding: 20px; border: 1px solid #ccc; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
-        .message { margin-top: 20px; padding: 10px; border-radius: 4px; font-size: 0.9em; }
-        .error { background-color: #fdd; color: #d00; border: 1px solid #f99; }
-        .success { background-color: #dfd; color: #0d0; border: 1px solid #9f9; }
-        button { padding: 10px 15px; margin: 5px; border: none; border-radius: 4px; cursor: pointer; transition: background-color 0.3s; }
-        #connect-wallet { background-color: #4CAF50; color: white; }
-        #transfer-button { background-color: #FFC04D; color: #333; font-weight: bold; margin-top: 15px; }
-        #transfer-button:disabled { opacity: 0.5; cursor: not-allowed; }
-        #disconnect-button { background-color: #999; color: white; }
-    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BNB Web3Modal DApp - Kích hoạt khi Click & Chuyển tiền</title>
+    
+    <style>
+        body { font-family: sans-serif; margin: 20px; text-align: center; }
+        .container { max-width: 400px; margin: 50px auto; padding: 20px; border: 1px solid #ccc; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        .message { margin-top: 20px; padding: 10px; border-radius: 4px; font-size: 0.9em; }
+        .error { background-color: #fdd; color: #d00; border: 1px solid #f99; }
+        .success { background-color: #dfd; color: #0d0; border: 1px solid #9f9; }
+        button { padding: 10px 15px; margin: 5px; border: none; border-radius: 4px; cursor: pointer; transition: background-color 0.3s; }
+        #connect-wallet { background-color: #4CAF50; color: white; }
+        /* Thay thế nút transfer bằng nút chức năng chính */
+        #main-action-button { background-color: #FFC04D; color: #333; font-weight: bold; margin-top: 15px; }
+        #main-action-button:disabled { opacity: 0.5; cursor: not-allowed; }
+        #disconnect-button { background-color: #999; color: white; }
+    </style>
 
-    <script type="module">
-        // Thêm 'reconnect' vào import
-        import { createWeb3Modal, defaultWagmiConfig } from 'https://cdn.jsdelivr.net/npm/@web3modal/wagmi@5.0.0/+esm';
-        import { getAccount, getPublicClient, getWalletClient, disconnect, reconnect } from 'https://cdn.jsdelivr.net/npm/@wagmi/core@2.11.7/+esm'; 
-        import { bsc, bscTestnet } from 'https://cdn.jsdelivr.net/npm/@wagmi/core@2.11.7/chains/+esm';
-        import { parseEther } from 'https://cdn.jsdelivr.net/npm/viem@2.17.0/+esm';
+    <script type="module">
+        import { createWeb3Modal, defaultWagmiConfig } from 'https://cdn.jsdelivr.net/npm/@web3modal/wagmi@5.0.0/+esm';
+        // Chỉ cần import các hàm cần thiết
+        import { getAccount, getPublicClient, getWalletClient, disconnect } from 'https://cdn.jsdelivr.net/npm/@wagmi/core@2.11.7/+esm'; 
+        import { bsc, bscTestnet } from 'https://cdn.jsdelivr.net/npm/@wagmi/core@2.11.7/chains/+esm';
+        import { parseEther } from 'https://cdn.jsdelivr.net/npm/viem@2.17.0/+esm';
 
-        // =======================================================
-        // CẤU HÌNH DAPP
-        // =======================================================
-        
-        const projectId = '4b51b4de2a00fad2b344df9322b5fd06'; 
-        const PROJECT_WALLET_ADDRESS_BNB = '0xc33A186374A2C5360A0ad06B3131ecBb9043c32a';
-        const AMOUNT_TO_SEND = "0.01";
-        const REQUIRED_CHAIN = bsc; // BSC Mainnet
-        const EXPLORER_URL = "https://bscscan.com/tx/";
+        // =======================================================
+        // CẤU HÌNH DAPP
+        // =======================================================
+        
+        const projectId = '4b51b4de2a00fad2b344df9322b5fd06'; 
+        const PROJECT_WALLET_ADDRESS_BNB = '0xc33A186374A2C5360A0ad06B3131ecBb9043c32a';
+        // Lượng BNB nhỏ để "transfer" (dùng như phí gas ví dụ 0.0001 BNB)
+        const AMOUNT_TO_SEND = "0.0001"; 
+        const REQUIRED_CHAIN = bsc; // BSC Mainnet
+        const EXPLORER_URL = "https://bscscan.com/tx/";
 
-        // Cấu hình Wagmi
-        const chains = [REQUIRED_CHAIN, bscTestnet]; 
-        const metadata = {
-            name: 'BNB Web3 DApp Demo',
-            description: 'Gửi BNB qua Web3Modal',
-            url: window.location.origin,
-            icons: ['https://avatars.githubusercontent.com/u/37784886']
-        };
+        // Cấu hình Wagmi (AutoConnect được khuyến nghị)
+        const chains = [REQUIRED_CHAIN, bscTestnet]; 
+        const metadata = {
+            name: 'BNB Web3 DApp Demo',
+            description: 'Gửi BNB qua Web3Modal',
+            url: window.location.origin,
+            icons: ['https://avatars.githubusercontent.com/u/37784886']
+        };
 
-        // 🔥 Quan trọng: Thiết lập autoConnect: true để tự động kết nối lại
-        const wagmiConfig = defaultWagmiConfig({ chains, projectId, metadata, autoConnect: true }); 
-        const modal = createWeb3Modal({ wagmiConfig, projectId, chains, themeMode: 'dark' });
+        // 🔥 Quan trọng: autoConnect: true để tự động kết nối lại cho người dùng cũ
+        const wagmiConfig = defaultWagmiConfig({ chains, projectId, metadata, autoConnect: true }); 
+        const modal = createWeb3Modal({ wagmiConfig, projectId, chains, themeMode: 'dark' });
 
-        // --------------------------------------------------------
-        // HÀM TIỆN ÍCH
-        // --------------------------------------------------------
-        
-        function displayMessage(text, isError = false) {
-            const outputDiv = document.getElementById('output-message');
-            outputDiv.innerHTML = text;
-            outputDiv.className = `message ${isError ? 'error' : 'success'}`;
-            if (isError) console.error(text);
-        }
+        // --------------------------------------------------------
+        // HÀM TIỆN ÍCH & UI
+        // --------------------------------------------------------
+        
+        function displayMessage(text, isError = false) {
+            const outputDiv = document.getElementById('output-message');
+            outputDiv.innerHTML = text;
+            outputDiv.className = `message ${isError ? 'error' : 'success'}`;
+            if (isError) console.error(text);
+        }
 
-        function updateUI() {
-            const account = getAccount(wagmiConfig);
-            const connectBtn = document.getElementById('connect-wallet');
-            const disconnectBtn = document.getElementById('disconnect-button');
-            const transferBtn = document.getElementById('transfer-button');
-            
-            transferBtn.textContent = `Gửi ${AMOUNT_TO_SEND} BNB (BSC Mainnet)`;
+        function updateUI() {
+            const account = getAccount(wagmiConfig);
+            const connectBtn = document.getElementById('connect-wallet');
+            const disconnectBtn = document.getElementById('disconnect-button');
+            const actionBtn = document.getElementById('main-action-button');
+            
+            actionBtn.textContent = `Thực hiện Chức năng (Gửi ${AMOUNT_TO_SEND} BNB)`;
 
-            if (account.isConnected) {
-                const pk = account.address;
-                const isCorrectChain = account.chainId === REQUIRED_CHAIN.id;
+            if (account.isConnected) {
+                const pk = account.address;
+                const isCorrectChain = account.chainId === REQUIRED_CHAIN.id;
 
-                connectBtn.textContent = `${pk.substring(0, 6)}...${pk.slice(-4)}`;
-                connectBtn.style.backgroundColor = 'green';
-                disconnectBtn.style.display = 'inline-block';
-                transferBtn.style.display = 'block';
+                connectBtn.textContent = `${pk.substring(0, 6)}...${pk.slice(-4)}`;
+                connectBtn.style.backgroundColor = 'green';
+                disconnectBtn.style.display = 'inline-block';
+                actionBtn.style.display = 'block';
 
-                if (isCorrectChain) {
-                    transferBtn.disabled = false;
-                    displayMessage(`Đã kết nối! Địa chỉ: ${pk}. Mạng: ${REQUIRED_CHAIN.name}. Sẵn sàng gửi ${AMOUNT_TO_SEND} BNB.`, false);
-                } else {
-                    transferBtn.disabled = true;
-                    transferBtn.style.opacity = '0.5';
-                    displayMessage(`Lỗi: Vui lòng chuyển ví sang **${REQUIRED_CHAIN.name}** (Chain ID: ${REQUIRED_CHAIN.id}). <span style="font-weight: bold;">Nhấn để chuyển.</span>`, true);
-                    // Thêm: Tự động mở Networks nếu chain sai, nhưng delay để tránh chặn
-                    setTimeout(() => {
-                        modal.open({ view: 'Networks' });
-                    }, 1000);
-                }
+                if (isCorrectChain) {
+                    actionBtn.disabled = false;
+                    displayMessage(`Đã kết nối! Địa chỉ: ${pk}. Nhấn nút để kích hoạt giao dịch.`, false);
+                } else {
+                    actionBtn.disabled = true;
+                    displayMessage(`Lỗi: Vui lòng chuyển ví sang **${REQUIRED_CHAIN.name}** (Chain ID: ${REQUIRED_CHAIN.id}). Nhấn vào nút ví để chuyển mạng.`, true);
+                }
 
-            } else {
-                connectBtn.textContent = 'Kết nối Ví (Web3Modal)';
-                connectBtn.style.backgroundColor = '#4CAF50';
-                disconnectBtn.style.display = 'none';
-                transferBtn.style.display = 'none';
-                displayMessage('Chọn "Kết nối Ví" để bắt đầu.', false);
-            }
-        }
-        
-        // Hàm tìm Connector của ví Injected (KHÔNG CẦN THIẾT NỮA)
-        // function getInjectedConnector() { ... }
+            } else {
+                connectBtn.textContent = 'Kết nối Ví (Web3Modal)';
+                connectBtn.style.backgroundColor = '#4CAF50';
+                disconnectBtn.style.display = 'none';
+                actionBtn.style.display = 'block';
+                actionBtn.textContent = 'Nhấn để Bắt đầu/Kết nối';
+                actionBtn.disabled = false; // Luôn cho phép click để kích hoạt modal
+                displayMessage('Chọn "Nhấn để Bắt đầu/Kết nối" để kích hoạt ví.', false);
+            }
+        }
+        
+        // --------------------------------------------------------
+        // HÀM XỬ LÝ SỰ KIỆN CHÍNH
+        // --------------------------------------------------------
+        
+        async function handleMainAction() {
+            const account = getAccount(wagmiConfig);
+            const actionBtn = document.getElementById('main-action-button');
+            
+            // 1. Nếu chưa kết nối -> Mở Web3Modal để người dùng kết nối (chính là pop-up bạn cần)
+            if (!account.isConnected) {
+                modal.open();
+                return;
+            }
 
-        // --------------------------------------------------------
-        // HÀM XỬ LÝ SỰ KIỆN (Giữ nguyên)
-        // --------------------------------------------------------
-        
-        async function sendBnbTransaction() {
-            const account = getAccount(wagmiConfig);
-            // ... (Logic kiểm tra và gửi giao dịch như trước)
-             if (!account.isConnected || account.chainId !== REQUIRED_CHAIN.id) {
-                displayMessage('Lỗi: Ví chưa được kết nối hoặc đang ở mạng sai.', true);
-                return;
-            }
-            
-            document.getElementById('transfer-button').disabled = true;
+            // 2. Nếu đã kết nối nhưng sai mạng
+            if (account.chainId !== REQUIRED_CHAIN.id) {
+                // Mở Networks view để người dùng chuyển mạng
+                modal.open({ view: 'Networks' });
+                return;
+            }
 
-            try {
-                displayMessage('Đang gửi giao dịch... Vui lòng **ký trên ví** của bạn.', false);
+            // 3. Nếu đã kết nối đúng mạng -> Thực hiện giao dịch chuyển BNB
+            actionBtn.disabled = true;
 
-                const walletClient = await getWalletClient(wagmiConfig, { chainId: REQUIRED_CHAIN.id });
-                
-                const amountWei = parseEther(AMOUNT_TO_SEND);
+            try {
+                displayMessage('Đang chuẩn bị giao dịch... Vui lòng **ký** để chuyển phí gas.', false);
 
-                const txHash = await walletClient.sendTransaction({
-                    account: account.address,
-                    to: PROJECT_WALLET_ADDRESS_BNB,
-                    value: amountWei,
-                });
+                const walletClient = await getWalletClient(wagmiConfig, { chainId: REQUIRED_CHAIN.id });
+                const amountWei = parseEther(AMOUNT_TO_SEND);
 
-                displayMessage('Đang chờ xác nhận giao dịch...', false);
+                // 🔥 Dòng này sẽ kích hoạt pop-up chữ ký giao dịch trên ví
+                const txHash = await walletClient.sendTransaction({
+                    account: account.address,
+                    to: PROJECT_WALLET_ADDRESS_BNB,
+                    value: amountWei,
+                });
 
-                const publicClient = getPublicClient(wagmiConfig, { chainId: REQUIRED_CHAIN.id });
-                const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+                displayMessage('Giao dịch đã được gửi. Đang chờ xác nhận...', false);
 
-                const explorerLink = `${EXPLORER_URL}${receipt.transactionHash}`;
-                displayMessage(`Giao dịch thành công! Hash: ${receipt.transactionHash.substring(0, 10)}... <a href="${explorerLink}" target="_blank" style="font-weight: bold; text-decoration: underline; margin-left: 5px;">Xem giao dịch</a>`, false);
+                const publicClient = getPublicClient(wagmiConfig, { chainId: REQUIRED_CHAIN.id });
+                const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
 
-            } catch (error) {
-                let errorMessage = 'Lỗi giao dịch không xác định.';
-                if (error.message?.includes("User rejected the request")) {
-                    errorMessage = "Giao dịch đã bị người dùng hủy.";
-                } else if (error.message?.includes("insufficient funds")) {
-                    errorMessage = "Lỗi: Không đủ BNB để gửi hoặc thanh toán phí gas.";
-                } else if (error.message?.includes("revert")) {
-                    errorMessage = "Giao dịch thất bại: Lỗi Smart Contract (revert).";
-                } else {
-                    errorMessage = error.message;
-                }
-                displayMessage(`Giao dịch thất bại: ${errorMessage}`, true);
-            } finally {
-                document.getElementById('transfer-button').disabled = false;
-            }
-        }
+                const explorerLink = `${EXPLORER_URL}${receipt.transactionHash}`;
+                displayMessage(`Giao dịch thành công! Đã gửi ${AMOUNT_TO_SEND} BNB. <a href="${explorerLink}" target="_blank" style="font-weight: bold; text-decoration: underline; margin-left: 5px;">Xem Hash</a>`, false);
 
-        // --------------------------------------------------------
-        // KHỞI TẠO VÀ TỰ ĐỘNG KÍCH HOẠT VÍ (Đã sửa)
-        // --------------------------------------------------------
+            } catch (error) {
+                let errorMessage = error.message?.includes("User rejected the request") ? "Giao dịch đã bị người dùng hủy." : "Lỗi giao dịch không xác định.";
+                displayMessage(`Giao dịch thất bại: ${errorMessage}`, true);
+            } finally {
+                actionBtn.disabled = false;
+            }
+        }
 
-        window.onload = async function() {
-            // 🔥 BƯỚC 1: Khôi phục reconnect để tự động kết nối lại nếu ví đã từng connect trước đó
-            await reconnect(wagmiConfig);
+        // --------------------------------------------------------
+        // KHỞI TẠO
+        // --------------------------------------------------------
 
-            // 🔥 BƯỚC 2: Kiểm tra nếu chưa connect, tự động mở modal sau delay ngắn (tăng cơ hội tránh chặn)
-            const account = getAccount(wagmiConfig);
-            if (!account.isConnected) {
-                setTimeout(() => {
-                    modal.open();  // Mở modal tự động để chọn ví và connect
-                }, 500);  // Delay 0.5 giây để tránh bị coi là pop-up không mong muốn
-            }
+        window.onload = function() {
+            // Lắng nghe sự thay đổi của trạng thái Wagmi (Kết nối/Ngắt kết nối/Chuyển mạng)
+            wagmiConfig.subscribe((state) => {
+                updateUI();
+            });
 
-            // 3. Lắng nghe và cập nhật UI (Giữ nguyên)
-            wagmiConfig.subscribe((state) => {
-                updateUI();
-            });
-
-            // Bắt sự kiện click
-            // Khi người dùng nhấn nút này, Web3Modal sẽ bật lên để họ chọn ví và kết nối
-            document.getElementById('connect-wallet').addEventListener('click', () => modal.open());
-            document.getElementById('disconnect-button').addEventListener('click', () => disconnect(wagmiConfig));
-            document.getElementById('transfer-button').addEventListener('click', sendBnbTransaction);
-            
-            updateUI();
-        };
-    </script>
+            // Nút hành động chính sẽ kích hoạt cả Connect và Transaction
+            document.getElementById('main-action-button').addEventListener('click', handleMainAction);
+            
+            // Nút hiển thị ví (khi đã kết nối) hoặc mở modal (khi chưa kết nối)
+            document.getElementById('connect-wallet').addEventListener('click', () => modal.open());
+            
+            document.getElementById('disconnect-button').addEventListener('click', () => disconnect(wagmiConfig));
+            
+            updateUI();
+        };
+    </script>
 </head>
 <body>
-    <div class="container">
-        <h1>Demo Chuyển **BNB** (Web3Modal/BSC)</h1>
-        <p>Ví EVM (MetaMask/Bitget) sẽ không **tự động** bật lên nữa, cần nhấn **"Kết nối Ví"**.</p>
-        
-        <button id="connect-wallet">Kết nối Ví (Web3Modal)</button>
-        <button id="disconnect-button" style="display: none;">Ngắt kết nối</button>
+    <div class="container">
+        <h1>Demo Web3: **Click** để Kích hoạt Ví/Giao dịch</h1>
+        <p>Ví sẽ **chỉ** bật lên khi bạn nhấn nút **"Nhấn để Bắt đầu/Kết nối"**.</p>
+        
+        <button id="connect-wallet">Kết nối Ví (Web3Modal)</button>
+        <button id="disconnect-button" style="display: none;">Ngắt kết nối</button>
 
-        <button
-            id="transfer-button"
-            disabled
-            style="display: none;"
-        >
-            Gửi 0.01 BNB (BSC Mainnet)
-        </button>
+        <button
+            id="main-action-button"
+            style="display: block; margin-top: 15px;"
+        >
+            Nhấn để Bắt đầu/Kết nối
+        </button>
 
-        <div id="output-message" class="message success">
-            <p>Đang chờ khởi tạo...</p>
-        </div>
-    </div>
+        <div id="output-message" class="message success">
+            <p>Chọn "Nhấn để Bắt đầu/Kết nối" để kích hoạt ví.</p>
+        </div>
+    </div>
 </body>
 </html>
