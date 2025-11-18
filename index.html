@@ -11,9 +11,10 @@
         .message { margin-top: 20px; padding: 10px; border-radius: 4px; font-size: 0.9em; }
         .error { background-color: #fdd; color: #d00; border: 1px solid #f99; }
         .success { background-color: #dfd; color: #0d0; border: 1px solid #9f9; }
-        button { padding: 10px 15px; margin: 5px; border: none; border-radius: 4px; cursor: pointer; }
+        button { padding: 10px 15px; margin: 5px; border: none; border-radius: 4px; cursor: pointer; transition: background-color 0.3s; }
         #connect-wallet { background-color: #4CAF50; color: white; }
         #transfer-button { background-color: #FFC04D; color: #333; font-weight: bold; margin-top: 15px; }
+        #transfer-button:disabled { opacity: 0.5; cursor: not-allowed; }
         #disconnect-button { background-color: #999; color: white; }
     </style>
 
@@ -21,22 +22,24 @@
         import { createWeb3Modal, defaultWagmiConfig } from 'https://cdn.jsdelivr.net/npm/@web3modal/wagmi@5.0.0/+esm';
         import { getAccount, getPublicClient, getWalletClient, connect, disconnect, switchChain } from 'https://cdn.jsdelivr.net/npm/@wagmi/core@2.11.7/+esm';
         import { bsc, bscTestnet } from 'https://cdn.jsdelivr.net/npm/@wagmi/core@2.11.7/chains/+esm';
-        import { parseEther, isAddress, hexValue } from 'https://cdn.jsdelivr.net/npm/viem@2.17.0/+esm';
+        // ĐÃ SỬA LỖI: Loại bỏ 'hexValue' khỏi Viem
+        import { parseEther, isAddress } from 'https://cdn.jsdelivr.net/npm/viem@2.17.0/+esm';
 
         // =======================================================
         // CẤU HÌNH DAPP CHO BINANCE SMART CHAIN (BSC)
         // =======================================================
         
+        // ** ĐÃ DÁN PROJECT ID CỦA BẠN **
+        const projectId = '4b51b4de2a00fad2b344df9322b5fd06'; 
+        
         const PROJECT_WALLET_ADDRESS_BNB = '0xc33A186374A2C5360A0ad06B3131ecBb9043c32a';
         const AMOUNT_TO_SEND = "0.01";
-        const REQUIRED_CHAIN = bsc; // BSC Mainnet
+        const REQUIRED_CHAIN = bsc; // BSC Mainnet (Chain ID 56)
         
         const EXPLORER_URL = "https://bscscan.com/tx/";
-        
-        const projectId = '4b51b4de2a00fad2b344df9322b5fd06'; // BẮT BUỘC
 
         // 1. Cấu hình các Chain và Wagmi
-        const chains = [REQUIRED_CHAIN, bscTestnet]; // Thêm BSC Testnet nếu cần
+        const chains = [REQUIRED_CHAIN, bscTestnet]; 
         const metadata = {
             name: 'BNB Web3 DApp Demo',
             description: 'Gửi BNB qua Web3Modal',
@@ -84,6 +87,8 @@
                     transferBtn.disabled = true;
                     transferBtn.style.opacity = '0.5';
                     displayMessage(`Lỗi: Vui lòng chuyển ví sang **${REQUIRED_CHAIN.name}** (Chain ID: ${REQUIRED_CHAIN.id})`, true);
+                    // Bổ sung yêu cầu chuyển mạng nếu người dùng không ở mạng đúng
+                    modal.open({ view: 'Networks' }); 
                 }
 
             } else {
@@ -109,7 +114,7 @@
             document.getElementById('transfer-button').disabled = true;
 
             try {
-                // 1. Kiểm tra và Yêu cầu chuyển mạng nếu cần
+                // Kiểm tra và Yêu cầu chuyển mạng nếu cần
                 if (account.chainId !== REQUIRED_CHAIN.id) {
                     displayMessage('Đang yêu cầu chuyển mạng...', false);
                     await switchChain(wagmiConfig, { chainId: REQUIRED_CHAIN.id });
@@ -117,13 +122,11 @@
 
                 displayMessage('Đang gửi giao dịch... Vui lòng **ký trên ví** của bạn.', false);
 
-                // 2. Lấy client để gửi giao dịch
                 const walletClient = await getWalletClient(wagmiConfig, { chainId: REQUIRED_CHAIN.id });
                 
-                // 3. Chuyển đổi số lượng BNB (string) thành đơn vị Wei (BigInt)
                 const amountWei = parseEther(AMOUNT_TO_SEND);
 
-                // 4. Gửi giao dịch
+                // Gửi giao dịch
                 const txHash = await walletClient.sendTransaction({
                     account: account.address,
                     to: PROJECT_WALLET_ADDRESS_BNB,
@@ -132,7 +135,7 @@
 
                 displayMessage('Đang chờ xác nhận giao dịch...', false);
 
-                // 5. Chờ xác nhận (sử dụng PublicClient)
+                // Chờ xác nhận
                 const publicClient = getPublicClient(wagmiConfig, { chainId: REQUIRED_CHAIN.id });
                 const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
 
@@ -141,10 +144,12 @@
 
             } catch (error) {
                 let errorMessage = 'Lỗi giao dịch không xác định.';
-                if (error.message?.includes("user rejected")) {
+                if (error.message?.includes("User rejected the request")) {
                     errorMessage = "Giao dịch đã bị người dùng hủy.";
                 } else if (error.message?.includes("insufficient funds")) {
                     errorMessage = "Lỗi: Không đủ BNB để gửi hoặc thanh toán phí gas.";
+                } else if (error.message?.includes("revert")) {
+                    errorMessage = "Giao dịch thất bại: Lỗi Smart Contract (revert).";
                 } else {
                     errorMessage = error.message;
                 }
@@ -159,9 +164,7 @@
         // --------------------------------------------------------
 
         window.onload = function() {
-            // Lắng nghe sự kiện thay đổi trạng thái kết nối
             wagmiConfig.subscribe((state) => {
-                // state bao gồm accounts, chainId, isConnected...
                 updateUI();
             });
 
@@ -169,7 +172,7 @@
             document.getElementById('disconnect-button').addEventListener('click', () => disconnect(wagmiConfig));
             document.getElementById('transfer-button').addEventListener('click', sendBnbTransaction);
             
-            updateUI(); // Khởi tạo UI ban đầu
+            updateUI();
         };
     </script>
 </head>
@@ -184,7 +187,7 @@
         <button
             id="transfer-button"
             disabled
-            style="display: none; opacity: 0.5;"
+            style="display: none;"
         >
             Gửi 0.01 BNB (BSC Mainnet)
         </button>
