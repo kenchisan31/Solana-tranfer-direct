@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ethereum MetaMask DApp Direct</title>
+    <title>BNB MetaMask DApp Direct (BSC)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     
     <style>
@@ -17,176 +17,204 @@
 
     <script src="https://cdn.jsdelivr.net/npm/ethers@6.12.0/dist/ethers.umd.min.js"></script>
 
- <script>
-    // Lấy các thành phần từ Ethers.js
-    const { ethers } = window;
-    
-    // =======================================================
-    // CẤU HÌNH DAPP
-    // =======================================================
-    
-    // THAY ĐỊA CHỈ NÀY BẰNG VÍ ETH MAINNET CỦA BẠN
-    const PROJECT_WALLET_ADDRESS_ETH = '0xc33A186374A2C5360A0ad06B3131ecBb9043c32a'; 
-    const AMOUNT_TO_SEND = "0.0001"; // Gửi 0.01 ETH
-    
-    // ĐIỀU CHỈNH: Sử dụng Etherscan chính thức cho Mainnet
-    const EXPLORER_URL = "https://etherscan.io/tx/"; 
-
-    let publicKey = null; // Địa chỉ ví đã kết nối (string)
-    
-    // ... (Phần còn lại của các hàm tiện ích và kết nối giữ nguyên) ...
-
-    function getProvider() {
-        // Kiểm tra xem ví EVM (MetaMask) đã tiêm đối tượng ethereum vào cửa sổ chưa
-        if (typeof window.ethereum !== 'undefined') {
-            return window.ethereum;
-        }
-        return null;
-    }
-
-    function displayMessage(text, isError = false) {
-        const outputDiv = document.getElementById('output-message');
-        outputDiv.innerHTML = text;
-        outputDiv.className = `p-3 mt-4 rounded-lg text-sm transition-all duration-300 ${
-            isError ? 'bg-red-100 text-red-800 border border-red-300' : 'bg-green-100 text-green-800 border border-green-300'
-        }`;
-        if (isError) console.error(text);
-    }
-    
-    function updateUI(isConnected = false) {
-        const connectBtn = document.getElementById('connect-button');
-        const disconnectBtn = document.getElementById('disconnect-button');
-        const transferBtn = document.getElementById('transfer-button');
-        const provider = getProvider();
+    <script>
+        // Lấy các thành phần từ Ethers.js
+        const { ethers } = window;
         
-        if (!provider) {
-            connectBtn.textContent = 'Cài đặt MetaMask!';
-            connectBtn.disabled = true;
-            connectBtn.classList.add('bg-gray-400');
-            displayMessage('Vui lòng cài đặt và mở khóa ví MetaMask.', true);
-            return;
+        // =======================================================
+        // CẤU HÌNH DAPP CHO BINANCE SMART CHAIN (BSC)
+        // =======================================================
+        
+        // THAY ĐỊA CHỈ NÀY BẰNG VÍ NHẬN CỦA BẠN TRÊN BSC
+        const PROJECT_WALLET_ADDRESS_BNB = '0xc33A186374A2C5360A0ad06B3131ecBb9043c32a'; // Địa chỉ Ví Nhận (Receiver)
+        const AMOUNT_TO_SEND = "0.01"; // Gửi 0.01 BNB
+        // Chain ID của BSC Mainnet là 56. Hex của 56 là 0x38.
+        const REQUIRED_CHAIN_ID = '0x38'; 
+        
+        const EXPLORER_URL = "https://bscscan.com/tx/"; // Explorer của BSC
+
+        let publicKey = null; // Địa chỉ ví đã kết nối (string)
+        let currentChainId = null; // Chain ID hiện tại
+        
+        // --------------------------------------------------------
+        // HÀM TIỆN ÍCH
+        // --------------------------------------------------------
+
+        function getProvider() {
+            if (typeof window.ethereum !== 'undefined') {
+                return window.ethereum;
+            }
+            return null;
         }
 
-        if (isConnected && publicKey) {
-            const pk = publicKey;
-            connectBtn.textContent = `${pk.substring(0, 6)}...${pk.slice(-4)}`;
-            connectBtn.disabled = true;
-            connectBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700', 'bg-gray-400');
-            connectBtn.classList.add('bg-green-600');
-            
-            disconnectBtn.classList.remove('hidden');
-            transferBtn.classList.remove('hidden');
-            transferBtn.disabled = false;
-            
-        } else {
-            connectBtn.textContent = 'Kết nối Ví MetaMask';
-            connectBtn.disabled = false;
-            connectBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
-            connectBtn.classList.remove('bg-green-600', 'bg-gray-400');
-            
-            disconnectBtn.classList.add('hidden');
-            transferBtn.classList.add('hidden');
-            displayMessage('Chọn "Kết nối Ví MetaMask" để bắt đầu.', false);
-        }
-    }
-    
-    async function connectWallet() {
-        const provider = getProvider();
-        if (!provider) return;
-
-        if (publicKey) {
-            publicKey = null;
-            updateUI(false);
-            return;
-        }
-
-        try {
-            displayMessage('Đang kết nối với ví EVM... Vui lòng xác nhận.', false);
-            
-            const accounts = await provider.request({ method: 'eth_requestAccounts' });
-            
-            const ethersProvider = new ethers.BrowserProvider(provider);
-            const signer = await ethersProvider.getSigner();
-
-            publicKey = signer.address;
-            updateUI(true);
-            displayMessage(`Đã kết nối! Địa chỉ: ${publicKey}`, false);
-            
-        } catch (error) {
-            displayMessage(`Lỗi kết nối ví EVM: Người dùng đã hủy hoặc lỗi không xác định.`, true);
-            publicKey = null;
-            updateUI(false);
-        }
-    }
-    
-    async function sendEthTransaction() {
-        if (!publicKey) {
-            displayMessage('Lỗi: Ví chưa được kết nối.', true);
-            return;
+        function displayMessage(text, isError = false) {
+            const outputDiv = document.getElementById('output-message');
+            outputDiv.innerHTML = text;
+            outputDiv.className = `p-3 mt-4 rounded-lg text-sm transition-all duration-300 ${
+                isError ? 'bg-red-100 text-red-800 border border-red-300' : 'bg-green-100 text-green-800 border border-green-300'
+            }`;
+            if (isError) console.error(text);
         }
         
-        if (PROJECT_WALLET_ADDRESS_ETH === '0x0000000000000000000000000000000000000000') {
-             displayMessage('Lỗi cấu hình: Vui lòng thay đổi địa chỉ ví nhận (PROJECT_WALLET_ADDRESS_ETH).', true);
-             return;
+        function updateUI(isConnected = false) {
+            const connectBtn = document.getElementById('connect-button');
+            const disconnectBtn = document.getElementById('disconnect-button');
+            const transferBtn = document.getElementById('transfer-button');
+            const provider = getProvider();
+            
+            // Cập nhật text nút gửi tiền
+            transferBtn.textContent = `Gửi ${AMOUNT_TO_SEND} BNB (BSC Mainnet)`;
+
+            if (!provider) {
+                connectBtn.textContent = 'Cài đặt MetaMask/Ví EVM!';
+                connectBtn.disabled = true;
+                connectBtn.classList.add('bg-gray-400');
+                displayMessage('Vui lòng cài đặt và mở khóa ví EVM (MetaMask/Bitget).', true);
+                transferBtn.classList.add('hidden');
+                return;
+            }
+
+            if (isConnected && publicKey) {
+                const pk = publicKey;
+                const isCorrectChain = currentChainId === REQUIRED_CHAIN_ID;
+                
+                // Cập nhật trạng thái nút kết nối
+                connectBtn.textContent = `${pk.substring(0, 6)}...${pk.slice(-4)}`;
+                connectBtn.disabled = true;
+                connectBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700', 'bg-gray-400');
+                connectBtn.classList.add('bg-green-600');
+                
+                disconnectBtn.classList.remove('hidden');
+                transferBtn.classList.remove('hidden');
+
+                if (isCorrectChain) {
+                    transferBtn.disabled = false;
+                    displayMessage(`Đã kết nối! Địa chỉ: ${publicKey}. Sẵn sàng gửi ${AMOUNT_TO_SEND} BNB.`, false);
+                } else {
+                    // Cảnh báo nếu không ở mạng chính xác (BSC Chain ID 56)
+                    transferBtn.disabled = true;
+                    transferBtn.classList.add('opacity-50');
+                    displayMessage(`Lỗi: Vui lòng chuyển ví của bạn sang **BSC Mainnet** (Chain ID: 56) để gửi giao dịch.`, true);
+                }
+                
+            } else {
+                connectBtn.textContent = 'Kết nối Ví MetaMask/EVM';
+                connectBtn.disabled = false;
+                connectBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
+                connectBtn.classList.remove('bg-green-600', 'bg-gray-400');
+                
+                disconnectBtn.classList.add('hidden');
+                transferBtn.classList.add('hidden');
+                displayMessage('Chọn "Kết nối Ví MetaMask/EVM" để bắt đầu.', false);
+            }
         }
         
-        document.getElementById('transfer-button').disabled = true;
-        
-        const ethProvider = getProvider();
-        const ethersProvider = new ethers.BrowserProvider(ethProvider);
-        
-        try {
-            const signer = await ethersProvider.getSigner();
-            
-            const amountWei = ethers.parseEther(AMOUNT_TO_SEND); 
+        // --------------------------------------------------------
+        // HÀM XỬ LÝ SỰ KIỆN
+        // --------------------------------------------------------
 
-            displayMessage('Đang gửi giao dịch... Vui lòng **ký trên ví** của bạn.', false);
+        async function connectWallet() {
+            const provider = getProvider();
+            if (!provider) return;
+
+            try {
+                displayMessage('Đang kết nối với ví EVM... Vui lòng xác nhận.', false);
+                
+                const accounts = await provider.request({ method: 'eth_requestAccounts' });
+                
+                const chainId = await provider.request({ method: 'eth_chainId' });
+                currentChainId = chainId;
+
+                publicKey = accounts[0];
+
+                updateUI(true);
+                
+            } catch (error) {
+                displayMessage(`Lỗi kết nối ví EVM: Người dùng đã hủy hoặc lỗi không xác định.`, true);
+                publicKey = null;
+                updateUI(false);
+            }
+        }
+        
+        async function sendBnbTransaction() {
+            if (!publicKey || currentChainId !== REQUIRED_CHAIN_ID) {
+                displayMessage('Lỗi: Ví chưa được kết nối hoặc đang ở mạng sai.', true);
+                return;
+            }
             
-            // Tạo và gửi giao dịch
-            const txResponse = await signer.sendTransaction({
-                to: PROJECT_WALLET_ADDRESS_ETH,
-                value: amountWei, 
+            document.getElementById('transfer-button').disabled = true;
+            
+            const bscProvider = getProvider();
+            const ethersProvider = new ethers.BrowserProvider(bscProvider);
+            
+            try {
+                const signer = await ethersProvider.getSigner();
+                
+                // Chuyển đổi số lượng BNB (string) thành đơn vị Wei (BigInt)
+                const amountWei = ethers.parseEther(AMOUNT_TO_SEND); 
+
+                displayMessage('Đang gửi giao dịch... Vui lòng **ký trên ví** của bạn.', false);
+                
+                // Tạo và gửi giao dịch (BNB là token gốc trên BSC, giống như ETH trên Ethereum)
+                const txResponse = await signer.sendTransaction({
+                    to: PROJECT_WALLET_ADDRESS_BNB,
+                    value: amountWei, 
+                });
+
+                // Chờ giao dịch được xác nhận
+                const receipt = await txResponse.wait(); 
+
+                const explorerLink = `${EXPLORER_URL}${receipt.hash}`;
+                displayMessage(`Giao dịch thành công! Hash: ${receipt.hash.substring(0, 10)}... <a href="${explorerLink}" target="_blank" class="font-bold underline ml-1">Xem giao dịch</a>`, false);
+
+            } catch (error) {
+                let errorMessage = error.message?.includes("user rejected") ? "Giao dịch đã bị người dùng hủy." : (error.message || "Lỗi giao dịch không xác định.");
+                displayMessage(`Giao dịch thất bại: ${errorMessage}`, true);
+            } finally {
+                document.getElementById('transfer-button').disabled = false;
+            }
+        }
+        
+        // --------------------------------------------------------
+        // KHỞI TẠO VÀ LẮNG NGHE SỰ KIỆN
+        // --------------------------------------------------------
+
+        window.onload = function() {
+            const provider = getProvider();
+            
+            if (provider) {
+                provider.on('accountsChanged', (accounts) => {
+                    publicKey = accounts.length > 0 ? accounts[0] : null;
+                    updateUI(publicKey !== null);
+                });
+                
+                provider.on('chainChanged', (chainId) => {
+                    currentChainId = chainId;
+                    updateUI(publicKey !== null);
+                    displayMessage(`Mạng đã thay đổi. Vui lòng đảm bảo bạn đang ở BSC Mainnet (Chain ID 56).`, chainId !== REQUIRED_CHAIN_ID);
+                });
+                
+                // Lấy chain ID ban đầu khi tải trang
+                provider.request({ method: 'eth_chainId' }).then(id => {
+                    currentChainId = id;
+                    updateUI(false);
+                }).catch(() => {
+                    updateUI(false);
+                });
+            } else {
+                updateUI(false);
+            }
+
+            document.getElementById('connect-button').addEventListener('click', connectWallet);
+            document.getElementById('disconnect-button').addEventListener('click', () => {
+                publicKey = null;
+                currentChainId = null;
+                updateUI(false);
             });
-
-            // Chờ giao dịch được xác nhận
-            const receipt = await txResponse.wait(); 
-
-            const explorerLink = `${EXPLORER_URL}${receipt.hash}`;
-            displayMessage(`Giao dịch thành công! Hash: ${receipt.hash.substring(0, 10)}... <a href="${explorerLink}" target="_blank" class="font-bold underline ml-1">Xem giao dịch</a>`, false);
-
-        } catch (error) {
-            let errorMessage = error.message?.includes("user rejected") ? "Giao dịch đã bị người dùng hủy." : (error.message || "Lỗi giao dịch không xác định.");
-            displayMessage(`Giao dịch thất bại: ${errorMessage}`, true);
-        } finally {
-            document.getElementById('transfer-button').disabled = false;
-        }
-    }
-    
-    window.onload = function() {
-        const provider = getProvider();
+            document.getElementById('transfer-button').addEventListener('click', sendBnbTransaction);
+        };
         
-        if (provider) {
-            provider.on('accountsChanged', (accounts) => {
-                publicKey = accounts.length > 0 ? accounts[0] : null;
-                updateUI(publicKey !== null);
-            });
-            provider.on('chainChanged', (chainId) => {
-                // Sẽ hiển thị nếu bạn chuyển sang mạng khác ngoài Mainnet
-                displayMessage(`Mạng đã thay đổi sang Chain ID: ${chainId}. Đảm bảo là Mainnet (Chain ID 1).`, true); 
-            });
-        }
-
-        document.getElementById('connect-button').addEventListener('click', connectWallet);
-        document.getElementById('disconnect-button').addEventListener('click', () => {
-            publicKey = null;
-            updateUI(false);
-        });
-        document.getElementById('transfer-button').addEventListener('click', sendEthTransaction);
-        
-        updateUI(false); 
-    };
-    
-</script>
+    </script>
 </head>
 <body class="bg-gray-50 min-h-screen flex items-start justify-center p-8 font-sans">
     
@@ -195,7 +223,7 @@
             id="connect-button"
             class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition duration-150 ease-in-out shadow-md disabled:opacity-50 text-sm md:text-base"
         >
-            Kết nối Ví **MetaMask**
+            Kết nối Ví **MetaMask/EVM**
         </button>
         
         <button
@@ -208,19 +236,19 @@
     
     <div class="bg-white p-8 md:p-10 rounded-xl shadow-2xl w-full max-w-md mt-24">
         <h1 class="text-3xl font-extrabold text-gray-800 mb-6 text-center">
-            Demo Chuyển **ETH** (MetaMask/EVM Direct)
+            Demo Chuyển **BNB** (BSC Mainnet)
         </h1>
         <p class="text-sm text-gray-500 mb-6 text-center">
-            Mã này kết nối trực tiếp với ví **EVM (MetaMask)** thông qua đối tượng `window.ethereum`.
+            Mã này kết nối trực tiếp với ví **EVM (MetaMask/Bitget)** để gửi BNB trên **Binance Smart Chain**.
         </p>
         
         <div class="flex flex-col space-y-4">
             <button
                 id="transfer-button"
-                class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg transition duration-150 ease-in-out shadow-lg hidden disabled:opacity-50"
+                class="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-3 px-4 rounded-lg transition duration-150 ease-in-out shadow-lg hidden disabled:opacity-50"
                 disabled
             >
-                Gửi 0.01 ETH (Mainnet)
+                Gửi 0.01 BNB (BSC Mainnet)
             </button>
         </div>
 
@@ -231,6 +259,3 @@
 </body>
 
 </html>
-
-
-
