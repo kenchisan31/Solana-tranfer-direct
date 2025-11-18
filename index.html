@@ -3,259 +3,195 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BNB MetaMask DApp Direct (BSC)</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>BNB Web3Modal DApp (BSC)</title>
     
     <style>
-        .connect-container {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 100;
-        }
+        body { font-family: sans-serif; margin: 20px; text-align: center; }
+        .container { max-width: 400px; margin: 50px auto; padding: 20px; border: 1px solid #ccc; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        .message { margin-top: 20px; padding: 10px; border-radius: 4px; font-size: 0.9em; }
+        .error { background-color: #fdd; color: #d00; border: 1px solid #f99; }
+        .success { background-color: #dfd; color: #0d0; border: 1px solid #9f9; }
+        button { padding: 10px 15px; margin: 5px; border: none; border-radius: 4px; cursor: pointer; }
+        #connect-wallet { background-color: #4CAF50; color: white; }
+        #transfer-button { background-color: #FFC04D; color: #333; font-weight: bold; margin-top: 15px; }
+        #disconnect-button { background-color: #999; color: white; }
     </style>
 
-    <script src="https://cdn.jsdelivr.net/npm/ethers@6.12.0/dist/ethers.umd.min.js"></script>
+    <script type="module">
+        import { createWeb3Modal, defaultWagmiConfig } from 'https://cdn.jsdelivr.net/npm/@web3modal/wagmi@5.0.0/+esm';
+        import { getAccount, getPublicClient, getWalletClient, connect, disconnect, switchChain } from 'https://cdn.jsdelivr.net/npm/@wagmi/core@2.11.7/+esm';
+        import { bsc, bscTestnet } from 'https://cdn.jsdelivr.net/npm/@wagmi/core@2.11.7/chains/+esm';
+        import { parseEther, isAddress, hexValue } from 'https://cdn.jsdelivr.net/npm/viem@2.17.0/+esm';
 
-    <script>
-        // Lấy các thành phần từ Ethers.js
-        const { ethers } = window;
-        
         // =======================================================
         // CẤU HÌNH DAPP CHO BINANCE SMART CHAIN (BSC)
         // =======================================================
         
-        // THAY ĐỊA CHỈ NÀY BẰNG VÍ NHẬN CỦA BẠN TRÊN BSC
-        const PROJECT_WALLET_ADDRESS_BNB = '0xc33A186374A2C5360A0ad06B3131ecBb9043c32a'; // Địa chỉ Ví Nhận (Receiver)
-        const AMOUNT_TO_SEND = "0.01"; // Gửi 0.01 BNB
-        // Chain ID của BSC Mainnet là 56. Hex của 56 là 0x38.
-        const REQUIRED_CHAIN_ID = '0x38'; 
+        const PROJECT_WALLET_ADDRESS_BNB = '0xc33A186374A2C5360A0ad06B3131ecBb9043c32a';
+        const AMOUNT_TO_SEND = "0.01";
+        const REQUIRED_CHAIN = bsc; // BSC Mainnet
         
-        const EXPLORER_URL = "https://bscscan.com/tx/"; // Explorer của BSC
-
-        let publicKey = null; // Địa chỉ ví đã kết nối (string)
-        let currentChainId = null; // Chain ID hiện tại
+        const EXPLORER_URL = "https://bscscan.com/tx/";
         
-        // --------------------------------------------------------
-        // HÀM TIỆN ÍCH
-        // --------------------------------------------------------
+        const projectId = '4b51b4de2a00fad2b344df9322b5fd06'; // BẮT BUỘC
 
-        function getProvider() {
-            if (typeof window.ethereum !== 'undefined') {
-                return window.ethereum;
-            }
-            return null;
-        }
+        // 1. Cấu hình các Chain và Wagmi
+        const chains = [REQUIRED_CHAIN, bscTestnet]; // Thêm BSC Testnet nếu cần
+        const metadata = {
+            name: 'BNB Web3 DApp Demo',
+            description: 'Gửi BNB qua Web3Modal',
+            url: window.location.origin,
+            icons: ['https://avatars.githubusercontent.com/u/37784886']
+        };
 
+        const wagmiConfig = defaultWagmiConfig({ chains, projectId, metadata });
+
+        // 2. Tạo Web3Modal
+        const modal = createWeb3Modal({ wagmiConfig, projectId, chains, themeMode: 'dark' });
+
+        // --------------------------------------------------------
+        // HÀM TIỆN ÍCH UI
+        // --------------------------------------------------------
+        
         function displayMessage(text, isError = false) {
             const outputDiv = document.getElementById('output-message');
             outputDiv.innerHTML = text;
-            outputDiv.className = `p-3 mt-4 rounded-lg text-sm transition-all duration-300 ${
-                isError ? 'bg-red-100 text-red-800 border border-red-300' : 'bg-green-100 text-green-800 border border-green-300'
-            }`;
+            outputDiv.className = `message ${isError ? 'error' : 'success'}`;
             if (isError) console.error(text);
         }
-        
-        function updateUI(isConnected = false) {
-            const connectBtn = document.getElementById('connect-button');
+
+        function updateUI() {
+            const account = getAccount(wagmiConfig);
+            const connectBtn = document.getElementById('connect-wallet');
             const disconnectBtn = document.getElementById('disconnect-button');
             const transferBtn = document.getElementById('transfer-button');
-            const provider = getProvider();
             
-            // Cập nhật text nút gửi tiền
             transferBtn.textContent = `Gửi ${AMOUNT_TO_SEND} BNB (BSC Mainnet)`;
 
-            if (!provider) {
-                connectBtn.textContent = 'Cài đặt MetaMask/Ví EVM!';
-                connectBtn.disabled = true;
-                connectBtn.classList.add('bg-gray-400');
-                displayMessage('Vui lòng cài đặt và mở khóa ví EVM (MetaMask/Bitget).', true);
-                transferBtn.classList.add('hidden');
-                return;
-            }
+            if (account.isConnected) {
+                const pk = account.address;
+                const isCorrectChain = account.chainId === REQUIRED_CHAIN.id;
 
-            if (isConnected && publicKey) {
-                const pk = publicKey;
-                const isCorrectChain = currentChainId === REQUIRED_CHAIN_ID;
-                
-                // Cập nhật trạng thái nút kết nối
                 connectBtn.textContent = `${pk.substring(0, 6)}...${pk.slice(-4)}`;
-                connectBtn.disabled = true;
-                connectBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700', 'bg-gray-400');
-                connectBtn.classList.add('bg-green-600');
-                
-                disconnectBtn.classList.remove('hidden');
-                transferBtn.classList.remove('hidden');
+                connectBtn.style.backgroundColor = 'green';
+                disconnectBtn.style.display = 'inline-block';
+                transferBtn.style.display = 'block';
 
                 if (isCorrectChain) {
                     transferBtn.disabled = false;
-                    displayMessage(`Đã kết nối! Địa chỉ: ${publicKey}. Sẵn sàng gửi ${AMOUNT_TO_SEND} BNB.`, false);
+                    displayMessage(`Đã kết nối! Địa chỉ: ${pk}. Mạng: ${REQUIRED_CHAIN.name}. Sẵn sàng gửi ${AMOUNT_TO_SEND} BNB.`, false);
                 } else {
-                    // Cảnh báo nếu không ở mạng chính xác (BSC Chain ID 56)
                     transferBtn.disabled = true;
-                    transferBtn.classList.add('opacity-50');
-                    displayMessage(`Lỗi: Vui lòng chuyển ví của bạn sang **BSC Mainnet** (Chain ID: 56) để gửi giao dịch.`, true);
+                    transferBtn.style.opacity = '0.5';
+                    displayMessage(`Lỗi: Vui lòng chuyển ví sang **${REQUIRED_CHAIN.name}** (Chain ID: ${REQUIRED_CHAIN.id})`, true);
                 }
-                
+
             } else {
-                connectBtn.textContent = 'Kết nối Ví MetaMask/EVM';
-                connectBtn.disabled = false;
-                connectBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
-                connectBtn.classList.remove('bg-green-600', 'bg-gray-400');
-                
-                disconnectBtn.classList.add('hidden');
-                transferBtn.classList.add('hidden');
-                displayMessage('Chọn "Kết nối Ví MetaMask/EVM" để bắt đầu.', false);
+                connectBtn.textContent = 'Kết nối Ví (Web3Modal)';
+                connectBtn.style.backgroundColor = '#4CAF50';
+                disconnectBtn.style.display = 'none';
+                transferBtn.style.display = 'none';
+                displayMessage('Chọn "Kết nối Ví" để bắt đầu.', false);
             }
         }
-        
+
         // --------------------------------------------------------
         // HÀM XỬ LÝ SỰ KIỆN
         // --------------------------------------------------------
-
-        async function connectWallet() {
-            const provider = getProvider();
-            if (!provider) return;
-
-            try {
-                displayMessage('Đang kết nối với ví EVM... Vui lòng xác nhận.', false);
-                
-                const accounts = await provider.request({ method: 'eth_requestAccounts' });
-                
-                const chainId = await provider.request({ method: 'eth_chainId' });
-                currentChainId = chainId;
-
-                publicKey = accounts[0];
-
-                updateUI(true);
-                
-            } catch (error) {
-                displayMessage(`Lỗi kết nối ví EVM: Người dùng đã hủy hoặc lỗi không xác định.`, true);
-                publicKey = null;
-                updateUI(false);
-            }
-        }
         
         async function sendBnbTransaction() {
-            if (!publicKey || currentChainId !== REQUIRED_CHAIN_ID) {
+            const account = getAccount(wagmiConfig);
+            if (!account.isConnected || account.chainId !== REQUIRED_CHAIN.id) {
                 displayMessage('Lỗi: Ví chưa được kết nối hoặc đang ở mạng sai.', true);
                 return;
             }
             
             document.getElementById('transfer-button').disabled = true;
-            
-            const bscProvider = getProvider();
-            const ethersProvider = new ethers.BrowserProvider(bscProvider);
-            
+
             try {
-                const signer = await ethersProvider.getSigner();
-                
-                // Chuyển đổi số lượng BNB (string) thành đơn vị Wei (BigInt)
-                const amountWei = ethers.parseEther(AMOUNT_TO_SEND); 
+                // 1. Kiểm tra và Yêu cầu chuyển mạng nếu cần
+                if (account.chainId !== REQUIRED_CHAIN.id) {
+                    displayMessage('Đang yêu cầu chuyển mạng...', false);
+                    await switchChain(wagmiConfig, { chainId: REQUIRED_CHAIN.id });
+                }
 
                 displayMessage('Đang gửi giao dịch... Vui lòng **ký trên ví** của bạn.', false);
+
+                // 2. Lấy client để gửi giao dịch
+                const walletClient = await getWalletClient(wagmiConfig, { chainId: REQUIRED_CHAIN.id });
                 
-                // Tạo và gửi giao dịch (BNB là token gốc trên BSC, giống như ETH trên Ethereum)
-                const txResponse = await signer.sendTransaction({
+                // 3. Chuyển đổi số lượng BNB (string) thành đơn vị Wei (BigInt)
+                const amountWei = parseEther(AMOUNT_TO_SEND);
+
+                // 4. Gửi giao dịch
+                const txHash = await walletClient.sendTransaction({
+                    account: account.address,
                     to: PROJECT_WALLET_ADDRESS_BNB,
-                    value: amountWei, 
+                    value: amountWei,
                 });
 
-                // Chờ giao dịch được xác nhận
-                const receipt = await txResponse.wait(); 
+                displayMessage('Đang chờ xác nhận giao dịch...', false);
 
-                const explorerLink = `${EXPLORER_URL}${receipt.hash}`;
-                displayMessage(`Giao dịch thành công! Hash: ${receipt.hash.substring(0, 10)}... <a href="${explorerLink}" target="_blank" class="font-bold underline ml-1">Xem giao dịch</a>`, false);
+                // 5. Chờ xác nhận (sử dụng PublicClient)
+                const publicClient = getPublicClient(wagmiConfig, { chainId: REQUIRED_CHAIN.id });
+                const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+
+                const explorerLink = `${EXPLORER_URL}${receipt.transactionHash}`;
+                displayMessage(`Giao dịch thành công! Hash: ${receipt.transactionHash.substring(0, 10)}... <a href="${explorerLink}" target="_blank" style="font-weight: bold; text-decoration: underline; margin-left: 5px;">Xem giao dịch</a>`, false);
 
             } catch (error) {
-                let errorMessage = error.message?.includes("user rejected") ? "Giao dịch đã bị người dùng hủy." : (error.message || "Lỗi giao dịch không xác định.");
+                let errorMessage = 'Lỗi giao dịch không xác định.';
+                if (error.message?.includes("user rejected")) {
+                    errorMessage = "Giao dịch đã bị người dùng hủy.";
+                } else if (error.message?.includes("insufficient funds")) {
+                    errorMessage = "Lỗi: Không đủ BNB để gửi hoặc thanh toán phí gas.";
+                } else {
+                    errorMessage = error.message;
+                }
                 displayMessage(`Giao dịch thất bại: ${errorMessage}`, true);
             } finally {
                 document.getElementById('transfer-button').disabled = false;
             }
         }
-        
+
         // --------------------------------------------------------
-        // KHỞI TẠO VÀ LẮNG NGHE SỰ KIỆN
+        // KHỞI TẠO
         // --------------------------------------------------------
 
         window.onload = function() {
-            const provider = getProvider();
-            
-            if (provider) {
-                provider.on('accountsChanged', (accounts) => {
-                    publicKey = accounts.length > 0 ? accounts[0] : null;
-                    updateUI(publicKey !== null);
-                });
-                
-                provider.on('chainChanged', (chainId) => {
-                    currentChainId = chainId;
-                    updateUI(publicKey !== null);
-                    displayMessage(`Mạng đã thay đổi. Vui lòng đảm bảo bạn đang ở BSC Mainnet (Chain ID 56).`, chainId !== REQUIRED_CHAIN_ID);
-                });
-                
-                // Lấy chain ID ban đầu khi tải trang
-                provider.request({ method: 'eth_chainId' }).then(id => {
-                    currentChainId = id;
-                    updateUI(false);
-                }).catch(() => {
-                    updateUI(false);
-                });
-            } else {
-                updateUI(false);
-            }
-
-            document.getElementById('connect-button').addEventListener('click', connectWallet);
-            document.getElementById('disconnect-button').addEventListener('click', () => {
-                publicKey = null;
-                currentChainId = null;
-                updateUI(false);
+            // Lắng nghe sự kiện thay đổi trạng thái kết nối
+            wagmiConfig.subscribe((state) => {
+                // state bao gồm accounts, chainId, isConnected...
+                updateUI();
             });
+
+            document.getElementById('connect-wallet').addEventListener('click', () => modal.open());
+            document.getElementById('disconnect-button').addEventListener('click', () => disconnect(wagmiConfig));
             document.getElementById('transfer-button').addEventListener('click', sendBnbTransaction);
+            
+            updateUI(); // Khởi tạo UI ban đầu
         };
-        
     </script>
 </head>
-<body class="bg-gray-50 min-h-screen flex items-start justify-center p-8 font-sans">
-    
-    <div class="connect-container">
-        <button
-            id="connect-button"
-            class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition duration-150 ease-in-out shadow-md disabled:opacity-50 text-sm md:text-base"
-        >
-            Kết nối Ví **MetaMask/EVM**
-        </button>
+<body>
+    <div class="container">
+        <h1>Demo Chuyển **BNB** (Web3Modal/BSC)</h1>
+        <p>Chọn ví của bạn để kết nối. Hỗ trợ đa ví (MetaMask, WalletConnect, v.v.).</p>
         
-        <button
-            id="disconnect-button"
-            class="bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg transition duration-150 ease-in-out hidden disabled:opacity-50 text-sm md:text-base ml-2"
-        >
-            Ngắt kết nối
-        </button>
-    </div>
-    
-    <div class="bg-white p-8 md:p-10 rounded-xl shadow-2xl w-full max-w-md mt-24">
-        <h1 class="text-3xl font-extrabold text-gray-800 mb-6 text-center">
-            Demo Chuyển **BNB** (BSC Mainnet)
-        </h1>
-        <p class="text-sm text-gray-500 mb-6 text-center">
-            Mã này kết nối trực tiếp với ví **EVM (MetaMask/Bitget)** để gửi BNB trên **Binance Smart Chain**.
-        </p>
-        
-        <div class="flex flex-col space-y-4">
-            <button
-                id="transfer-button"
-                class="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-3 px-4 rounded-lg transition duration-150 ease-in-out shadow-lg hidden disabled:opacity-50"
-                disabled
-            >
-                Gửi 0.01 BNB (BSC Mainnet)
-            </button>
-        </div>
+        <button id="connect-wallet">Kết nối Ví (Web3Modal)</button>
+        <button id="disconnect-button" style="display: none;">Ngắt kết nối</button>
 
-        <div id="output-message" class="mt-4 h-10">
-            <p class="text-sm text-gray-500">Đang chờ khởi tạo...</p>
+        <button
+            id="transfer-button"
+            disabled
+            style="display: none; opacity: 0.5;"
+        >
+            Gửi 0.01 BNB (BSC Mainnet)
+        </button>
+
+        <div id="output-message" class="message success">
+            <p>Đang chờ khởi tạo...</p>
         </div>
     </div>
 </body>
-
 </html>
